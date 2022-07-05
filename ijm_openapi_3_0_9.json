@@ -1,0 +1,808 @@
+openapi: 3.0.1
+info:
+  title: IJ Manager 3.5.0 REST API
+  version: 0.0.5
+  description: |-
+    Can be used by Dashboard tools like AccurioPro Dashboard Essential.
+    By default this API is only available for https for security reasons.
+
+
+    Revision History:
+    * 20.04.2022, v0.0.3:
+      - added authentication methods (JWT Token)
+      - clarified accountings parameters (time, limit, offset)
+      - added estimated ink consumption
+    * 27.04.2022, v0.0.4:
+      - renamed inkwaste_level
+      - moved consumables to status
+      - modified parameters for accounting
+    * 03.05.2022, v0.0.5:
+      - added machine_id to responses (please clarify counters)
+      - changed default port to 3000
+  contact:
+    name: SOFHA GmbH
+    url: www.sofha.de
+servers:
+  - url: https://DFENAME:3000
+paths:
+  /api/v1.0/auth:
+    post:
+      summary: ''
+      operationId: post-api-v1.0-auth
+      responses:
+        '200':
+          $ref: '#/components/responses/JWT-Token'
+        '401':
+          description: Unauthorized
+      description: >-
+        Signup with username and password. Returns JWT Token.
+
+
+        For AccurioPro Dashboard Essential the access permissions follow the
+        DFEs standard permission management.
+
+        a) Create a new user, e.g. "dashboarduser" (and set the password)
+
+        b) Configure the access permissions. If necessary by creating a separate
+        role. 
+
+        c) Use this endpoint to receive an JWT Token.
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  minLength: 8
+                  pattern: tbd
+                password:
+                  type: string
+              required:
+                - username
+                - password
+        description: Provide username and password for authentication.
+    parameters: []
+  /api/v1.0/refreshToken:
+    post:
+      summary: ''
+      operationId: post-api-v1.0-refreshToken
+      responses:
+        '200':
+          $ref: '#/components/responses/JWT-Token'
+        '400':
+          description: >-
+            Bad Request: if the old token is not withon 30 seconds within the
+            expiry time.
+        '401':
+          description: Unauthorized
+      description: >-
+        Returns a new token with a renewed expiry time. The request header still
+        contains the valid token (Authentication header). The new token with the
+        new expiry date is returned. 
+      security:
+        - JWT-Token: []
+      parameters: []
+  /api/v1.0/accountings/{accounting_id}:
+    parameters:
+      - schema:
+          type: integer
+          minimum: 1
+        name: accounting_id
+        in: path
+        required: true
+        description: Get details of a specific accounting entry
+    get:
+      summary: Accounting entry
+      tags: []
+      responses:
+        '200':
+          description: List of accounting entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job_AccountingDetails_v1.0'
+              examples: {}
+            application/xml:
+              schema:
+                type: object
+                properties: {}
+            multipart/form-data:
+              schema:
+                type: object
+                properties: {}
+            text/html:
+              schema:
+                type: object
+              examples: {}
+          headers: {}
+        '403':
+          description: Forbidden
+          headers: {}
+        '404':
+          description: Accounting entry not found
+        '500':
+          description: Internal Server Error
+        '501':
+          description: Not Implemented
+      operationId: get-api-v1.0-accounting
+      description: Retrieve the details of a specific accounting entry
+      parameters: []
+      x-internal: false
+      security:
+        - JWT-Token: []
+  /api/v1.0/accountings:
+    parameters: []
+    get:
+      summary: List of accounting entries
+      tags: []
+      responses:
+        '200':
+          description: List of accounting entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Job_AccountingDetails_v1.0'
+              examples:
+                Ex-1:
+                  value:
+                    - job_id: 140
+                      accounting_id: 140
+                      jobname: 1pagecolor.pdf
+                      final_status: Normal
+                    - job_id: 141
+                      accounting_id: 141
+                      jobname: 1pagecolor.pdf
+                      final_status: Aborted
+            application/xml:
+              schema:
+                type: object
+                properties: {}
+            multipart/form-data:
+              schema:
+                type: object
+                properties: {}
+            text/html:
+              schema:
+                type: object
+              examples: {}
+          headers: {}
+      operationId: get-api-v1.0-accountings
+      description: Retrieve the list of accounting entries.
+      parameters:
+        - schema:
+            type: string
+            format: date-time
+          in: query
+          description: >-
+            Time/date filter. Response contains accounting data  >= "from". (
+            referring  to the "Date/Time of reception" of the job.)
+          name: from
+        - schema:
+            type: string
+            maximum: 1000
+            format: date-time
+          in: query
+          name: to
+          description: Time/date filter. Response contains accounting data  <= "to"
+      x-internal: false
+      security:
+        - JWT-Token: []
+  /api/v1.0/counters:
+    get:
+      summary: Counters (lifetime)
+      tags: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/System_Cumulative_Counter_v1.0'
+      operationId: get-api-v1.0-counters
+      description: Retrieve lifetime counters
+      security:
+        - JWT-Token: []
+  /api/v1.0/events:
+    get:
+      summary: System events
+      tags: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event_v1.0'
+              examples:
+                example-1:
+                  value:
+                    - date_time: '2022-03-22 15:33:12'
+                      severity: Info
+                      category: User_Action
+                      user: Admin
+                      ip: 10.42.49.61
+                      code: SW2
+                      event: Reboot Command
+                      details: ''
+                    - date_time: '2022-03-22 15:33:12'
+                      severity: Info
+                      category: Job
+                      user: ''
+                      ip: ''
+                      code: SJ16
+                      event: Print finished
+                      details: ''
+      operationId: get-api-v1.0-events
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - Information
+              - Warning
+              - Error
+              - Fatal_Error
+          in: query
+          name: severity
+          description: Filter for severity, Response contains e.g. Warning
+        - schema:
+            type: string
+            enum:
+              - System
+              - Engine
+              - Consumable
+              - Maintenance
+              - User_Action
+              - Job
+          in: query
+          name: category
+          description: >-
+            Filter for a specific category, Response contains e.g. only Job
+            events
+        - schema:
+            type: string
+            format: date-time
+          in: query
+          name: from
+          description: Time/date filter. Response contains events >= From
+        - schema:
+            type: string
+            format: date-time
+          in: query
+          name: to
+          description: Time/date filter. Response contains events <= to
+        - schema:
+            type: string
+          in: query
+          name: code
+          description: Filter for a specific code, e.g. "SW2"
+      description: Retrieve a list of system events.
+      security:
+        - JWT-Token: []
+    parameters: []
+  /api/v1.0/system/info:
+    get:
+      summary: System information
+      tags: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/System_Info_v1.0'
+              examples:
+                KM-1e:
+                  value:
+                    printer:
+                      machine_id: AC93101456789
+                      model: AccurioJet KM-1
+                    dfe:
+                      software_version: string
+                      product_configuration: string
+                      serial_number: '90000013'
+                      hostname: string
+                      ipv4: 10.42.37.85
+                    '': string
+      operationId: get-api-v1.0-system-info
+      description: >-
+        Retrieve basic system information like serial number, network
+        information, software versions and so on. Usually this infomration does
+        not change without rebooting the DFE.
+      security:
+        - JWT-Token: []
+    parameters: []
+  /api/V1.0/system/status_km-1:
+    get:
+      summary: System status
+      tags: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/System_Status_KM-1_v1.0'
+              examples: {}
+      operationId: get-api-v1.0-device
+      description: |-
+        Retrieve product specific system status of:
+        - DFE
+        - Printer
+        - and finishers
+        Consumables are handled seperately.
+      security:
+        - JWT-Token: []
+    parameters: []
+components:
+  schemas:
+    Job_AccountingDetails_v1.0:
+      type: object
+      title: Job_AccountingDetails
+      description: Job accounting data -details
+      properties:
+        accounting_id:
+          type: integer
+          readOnly: true
+        machine_id:
+          type: string
+          description: The printers serial number
+          readOnly: true
+        general_info:
+          type: object
+          properties:
+            job_id:
+              type: integer
+              readOnly: true
+            final_status:
+              type: string
+              enum:
+                - Archive
+                - Normal
+                - Aborted
+              readOnly: true
+            job_name:
+              type: string
+              readOnly: true
+            owner_name:
+              type: string
+            document_pages:
+              type: integer
+            original_size:
+              type: string
+        paper:
+          type: object
+          properties:
+            paper_name:
+              type: string
+              readOnly: true
+            paper_type:
+              type: string
+              example: Coated Gloss
+              readOnly: true
+            output_size:
+              type: string
+              example: 585.0 mm x 750.0 mm
+              readOnly: true
+            thickness:
+              type: string
+              example: 0.11 mm
+              readOnly: true
+        print_processing:
+          type: object
+          properties:
+            start_rip:
+              type: string
+              format: date-time
+              readOnly: true
+            start_print:
+              type: string
+              format: date-time
+              readOnly: true
+            end_rip:
+              type: string
+              format: date-time
+              readOnly: true
+            end_print:
+              type: string
+        output:
+          type: object
+          properties:
+            extra_pages:
+              type: string
+            copy_count:
+              type: integer
+              example: 500
+              readOnly: true
+            total_pagecount:
+              type: integer
+              readOnly: true
+            print_sides:
+              type: string
+              enum:
+                - Simplex
+                - Duplex
+              readOnly: true
+            imposition:
+              type: string
+              enum:
+                - Simple
+                - N-Up
+                - ...
+              readOnly: true
+            collate:
+              type: string
+              enum:
+                - Sort
+                - Group
+              readOnly: true
+        ink_consumption_estimated:
+          type: object
+          description: estimated ink consumption of this job in picoliter (pl)
+          properties:
+            cyan:
+              type: number
+              readOnly: true
+            magenta:
+              type: number
+              readOnly: true
+            yellow:
+              type: number
+              readOnly: true
+            black:
+              type: number
+              readOnly: true
+          readOnly: true
+        ink_consumption:
+          type: object
+          description: ink consumption of this job in picoliter (pl)
+          properties:
+            cyan:
+              type: number
+              readOnly: true
+            magenta:
+              type: number
+              readOnly: true
+            yellow:
+              type: number
+              readOnly: true
+            black:
+              type: number
+              readOnly: true
+          readOnly: true
+      required:
+        - accounting_id
+      readOnly: true
+    System_Info_v1.0:
+      title: System_Info
+      type: object
+      properties:
+        printer:
+          type: object
+          properties:
+            machine_id:
+              type: string
+              description: |
+                The printers serial number
+              example: AC93101456789
+              readOnly: true
+            model:
+              type: string
+              example: AccurioJet KM-1
+              readOnly: true
+        dfe:
+          type: object
+          properties:
+            software_version:
+              type: string
+              description: IJ Manager software version
+            product_configuration:
+              type: string
+              description: Copy protection dongle - configuration
+            serial_number:
+              type: string
+              description: Copy protection dongle - serial number
+              example: '90000013'
+              readOnly: true
+            hostname:
+              type: string
+            ipv4:
+              type: string
+              example: 10.42.37.85
+    Event_v1.0:
+      title: Event
+      type: object
+      description: System Event Detail
+      properties:
+        date_time:
+          type: string
+          format: date-time
+          example: '2022-02-22 22:22:22'
+          readOnly: true
+        machine_id:
+          type: string
+          description: The printers serial number
+        severity:
+          type: string
+          enum:
+            - Info
+            - Warning
+            - Error
+            - Fatal_Error
+          example: Info
+          readOnly: true
+        category:
+          type: string
+          enum:
+            - System
+            - Engine
+            - Consumables
+            - Maintenance
+            - User_Action
+            - Job
+          example: User_Action
+          readOnly: true
+        user:
+          type: string
+          example: Admin
+          readOnly: true
+        ip:
+          type: string
+          example: 10.42.49.61
+          readOnly: true
+        code:
+          type: string
+          example: SW2
+          readOnly: true
+        event:
+          type: string
+          example: Reboot Command
+          readOnly: true
+        details:
+          type: string
+          readOnly: true
+    System_Cumulative_Counter_v1.0:
+      title: Cumulative_System_Counter_v1.0.0
+      type: object
+      description: ''
+      properties:
+        general:
+          type: object
+          properties:
+            date_time:
+              type: string
+              format: date-time
+              description: Time stamp of taking the information.
+              readOnly: true
+            date_startedrecording:
+              type: string
+              format: date-time
+              description: >-
+                Start date for recording the cumulative log from the time if
+                installation or resetting all counters.
+              readOnly: true
+            total_dfe_printtime:
+              type: number
+              description: |
+                Total print processing time measured by IJM. Unit: seconds
+
+                    Time between the start and end of the job
+                    Total counter from clean installation.
+                    It also includes the time of a job that ended due to an error or cancellation.
+              readOnly: true
+            total_service_calls:
+              type: integer
+              readOnly: true
+            total_rip_time:
+              type: number
+              description: 'Total interpretation time by IJM. Unit: seconds'
+        total_prints:
+          type: object
+          properties:
+            total_jobs_printed:
+              type: integer
+              description: >-
+                Total number of printed jobs (excluding test chart). See
+                "Cumulative System Counters"
+              readOnly: true
+            total_testchart_printed:
+              type: integer
+              description: >-
+                Total number of test chart pages. See "Cumulative System
+                Counters".
+            total_sheets_lifetime:
+              type: integer
+              description: |-
+                Total number of printed sheets. 
+                (Lifetime counter) as in PrintCounterXML of CSRC  
+            total_pages_lifetime:
+              type: integer
+              description: |-
+                Total number of printed pages. 
+                (Lifetime counter)
+                As in PrintCounterXML of CSRC
+            total_sheets:
+              type: integer
+              description: Total number of printed sheets as in PrintCounterXML of CSRC.
+            total_pages:
+              type: integer
+              description: Total number of printed pages as in PrintCounterXML of CSRC.
+            total_good_sheets:
+              type: integer
+              description: |-
+                Total number of printed sheets output to main pile. 
+                As in PrintCounter.xml of CSRC
+            total_good_pages:
+              type: integer
+              description: >-
+                Total number of printed pages output to main pile. As in
+                PrintCounter.xml of CSRC
+            total_waste_sheets:
+              type: string
+              description: >-
+                Total number of printed sheets output to sampling pile. As in
+                PrintCounter.xml of CSRC
+            total_waste_pages:
+              type: string
+              description: >-
+                Total number of printed pages output to sampling pile. As in
+                PrintCounter.xml of CSRC
+            total_paperjams:
+              type: integer
+    System_Status_KM-1_v1.0:
+      title: System Status for DFE & KM-1/KM-1e v1.0
+      type: object
+      description: >-
+        The System Status is product specific. the list of items is not complete
+        yet.
+      properties:
+        machine_id:
+          type: string
+          description: The printers serial number
+        date_time:
+          type: string
+          format: date-time
+          description: Timestamp of taking the status information
+        dfe_status:
+          type: string
+        printer_status:
+          type: string
+          enum:
+            - modesetwait
+            - initializing
+            - idling
+            - printing
+            - print_pausing
+            - head_change
+            - ilscleaning
+            - standby_mode
+            - active
+            - wait_power_off
+            - error_recoverable
+            - error_power_off
+          readOnly: true
+        printer_substatus:
+          type: string
+          readOnly: true
+        consumables:
+          type: object
+          properties:
+            cyan:
+              type: number
+              description: Cyan ink level in %
+              minimum: 0
+              maximum: 100
+              readOnly: true
+            magenta:
+              type: number
+              description: Magenta ink level in %
+              minimum: 0
+              maximum: 100
+              readOnly: true
+            yellow:
+              type: number
+              description: Yellow ink level in %
+              minimum: 0
+              maximum: 100
+              readOnly: true
+            black:
+              type: number
+              description: Black ink level in %
+              minimum: 0
+              maximum: 100
+              readOnly: true
+        inkwaste_level:
+          type: number
+          minimum: 0
+          maximum: 100
+          readOnly: true
+        errorlist:
+          type: array
+          items:
+            type: object
+            properties:
+              sequence_id:
+                type: number
+                readOnly: true
+              code:
+                type: number
+                readOnly: true
+              content:
+                type: string
+                readOnly: true
+              countermeasure:
+                type: string
+                readOnly: true
+        wiping_unit:
+          type: object
+          properties:
+            installation_status:
+              type: string
+              enum:
+                - installed
+                - not_installed
+              readOnly: true
+            floor_cloth:
+              type: string
+              enum:
+                - empty
+                - available
+              readOnly: true
+            wiping_cover:
+              type: string
+              enum:
+                - open
+                - closed
+              readOnly: true
+        drum_preheating:
+          type: string
+          enum:
+            - nopreheating
+            - heating
+            - cooling
+            - stable
+          readOnly: true
+        drum_rotation:
+          type: string
+          enum:
+            - notstable
+            - stable
+            - stop
+          readOnly: true
+        carrier_status:
+          type: string
+          enum:
+            - possible
+            - impossible
+          readOnly: true
+        ...:
+          type: string
+  securitySchemes:
+    JWT-Token:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    JWT-Token:
+      description: Example response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              token:
+                type: string
+                example: mF_9.B5f-4.1JqM
+                readOnly: true
+              token_type:
+                type: string
+                default: Bearer
+          examples: {}
+security:
+  - JWT-Token: []
